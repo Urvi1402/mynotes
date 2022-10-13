@@ -65,7 +65,7 @@ class _LoginViewState extends State<LoginView> {
                 );
 
                 final user = AuthService.firebase().currentUser;
-                //getting the current user 
+                //getting the current user
                 if (user?.isEmailVerified ?? false) {
                   //user's email is verified
                   Navigator.of(context).pushNamedAndRemoveUntil(
