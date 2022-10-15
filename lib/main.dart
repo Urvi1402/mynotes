@@ -8,6 +8,7 @@ import 'package:mynotes/views/register_view.dart';
 import 'package:mynotes/views/verify_email_view.dart';
 import 'package:mynotes/views/notes/create_update_note_view.dart';
 import 'package:page_transition/page_transition.dart';
+import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:lottie/lottie.dart';
 
 void main() {
@@ -15,9 +16,7 @@ void main() {
   runApp(
     MaterialApp(
       title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: FlexThemeData.light(scheme: FlexScheme.sanJuanBlue),
       home: const SplashScreen(),
       routes: {
         loginRoute: (context) => const LoginView(),
@@ -40,7 +39,7 @@ class SplashScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       nextScreen: const HomePage(),
       splashIconSize: 250,
-      duration: 1200,
+      duration: 0,
       splashTransition: SplashTransition.fadeTransition,
       pageTransitionType: PageTransitionType.leftToRight,
       animationDuration: const Duration(milliseconds: 2000),

@@ -27,6 +27,9 @@ class NotesListView extends StatelessWidget {
             onTap(note);
           },
           title: Text(
+            style: TextStyle(
+              fontFamily: 'Poppins',
+            ),
             note.text,
             maxLines: 1,
             softWrap: true,
