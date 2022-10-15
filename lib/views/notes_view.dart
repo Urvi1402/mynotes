@@ -1,4 +1,3 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:mynotes/constants/routes.dart';
 import 'package:mynotes/services/auth/auth_service.dart';
@@ -60,11 +59,29 @@ class _NotesViewState extends State<NotesView> {
           )
         ],
       ),
-      //complete the body
-      // body: FutureBuilder(
-      //   future: _notesService.getOrCreateUser(email: userEmail),
-      //   builder: (context, snapshot) {},
-      // ),
+      body: FutureBuilder(
+        future: _notesService.getOrCreateUser(email: userEmail),
+        builder: (context, snapshot) {
+          switch (snapshot.connectionState) {
+            case ConnectionState.done:
+              return StreamBuilder(
+                stream: _notesService.allNotes,
+                builder: (context, snapshot) {
+                  switch (snapshot.connectionState) {
+                    case ConnectionState.waiting:
+                      return const Text('Waiting for all notes....');
+
+                    default:
+                      return const CircularProgressIndicator();
+                  }
+                },
+              );
+
+            default:
+              return const CircularProgressIndicator();
+          }
+        },
+      ),
     );
   }
 }
