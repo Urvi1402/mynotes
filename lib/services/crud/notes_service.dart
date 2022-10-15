@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:mynotes/services/crud/crud_exceptions.dart';
 import 'package:sqflite/sqflite.dart';
@@ -12,12 +11,16 @@ class NotesService {
   List<DatabaseNote> _notes = [];
 
   static final NotesService _shared = NotesService._sharedInstance();
-  NotesService._sharedInstance();
-
+  NotesService._sharedInstance() {
+    _notesStreamController = StreamController<List<DatabaseNote>>.broadcast(
+      onListen: () {
+        _notesStreamController.sink.add(_notes);
+      },
+    );
+  }
   factory NotesService() => _shared;
 
-  final _notesStreamController =
-      StreamController<List<DatabaseNote>>.broadcast();
+  late final StreamController<List<DatabaseNote>> _notesStreamController;
 
   Stream<List<DatabaseNote>> get allNotes => _notesStreamController.stream;
 
@@ -29,34 +32,34 @@ class NotesService {
       final createdUser = await createUser(email: email);
       return createdUser;
     } catch (e) {
-      //just an easier way to make your code easier to be debug
       rethrow;
     }
   }
 
   Future<void> _cacheNotes() async {
-    //underscore before the function name signifies that it is a private function,private to this class
     final allNotes = await getAllNotes();
     _notes = allNotes.toList();
     _notesStreamController.add(_notes);
   }
 
-  Future<DatabaseNote> updateNote(
-      {required DatabaseNote note, required String text}) async {
+  Future<DatabaseNote> updateNote({
+    required DatabaseNote note,
+    required String text,
+  }) async {
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
 
-    //make sure note exists
+    // make sure note exists
     await getNote(id: note.id);
 
-    //update DB
+    // update DB
     final updatesCount = await db.update(noteTable, {
       textColumn: text,
       isSyncedWithCloudColumn: 0,
     });
 
     if (updatesCount == 0) {
-      throw CouldNotUpdateNote;
+      throw CouldNotUpdateNote();
     } else {
       final updatedNote = await getNote(id: note.id);
       _notes.removeWhere((note) => note.id == updatedNote.id);
@@ -69,9 +72,8 @@ class NotesService {
   Future<Iterable<DatabaseNote>> getAllNotes() async {
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
-    final notes = await db.query(
-      noteTable,
-    );
+    final notes = await db.query(noteTable);
+
     return notes.map((noteRow) => DatabaseNote.fromRow(noteRow));
   }
 
@@ -81,7 +83,7 @@ class NotesService {
     final notes = await db.query(
       noteTable,
       limit: 1,
-      where: 'id= ?',
+      where: 'id = ?',
       whereArgs: [id],
     );
 
@@ -96,7 +98,6 @@ class NotesService {
     }
   }
 
-  //returns the number of rows that were affected by this
   Future<int> deleteAllNotes() async {
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
@@ -125,18 +126,15 @@ class NotesService {
   Future<DatabaseNote> createNote({required DatabaseUser owner}) async {
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
-    //make sure owner exists in the database wuth the correct id
-    final dbUser = await getUser(
-        email: owner
-            .email); //getting the current user by using the getUser function created
 
+    // make sure owner exists in the database with the correct id
+    final dbUser = await getUser(email: owner.email);
     if (dbUser != owner) {
       throw CouldNotFindUser();
     }
 
     const text = '';
-
-    //create the note
+    // create the note
     final noteId = await db.insert(noteTable, {
       userIdColumn: owner.id,
       textColumn: text,
@@ -150,8 +148,8 @@ class NotesService {
       isSyncedWithCloud: true,
     );
 
-    _notes.add(
-        note); //stream controller exposes the values stored inside '_notes' to the user/outside world
+    _notes.add(note);
+    _notesStreamController.add(_notes);
 
     return note;
   }
@@ -159,6 +157,7 @@ class NotesService {
   Future<DatabaseUser> getUser({required String email}) async {
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
+
     final results = await db.query(
       userTable,
       limit: 1,
@@ -167,11 +166,9 @@ class NotesService {
     );
 
     if (results.isEmpty) {
-      throw CouldNotFindUser(); //here we have to do the opposite to what we did in createUser by raising a query
-
+      throw CouldNotFindUser();
     } else {
-      return DatabaseUser.fromRow(
-          results.first); //getting the first row that was read from the user
+      return DatabaseUser.fromRow(results.first);
     }
   }
 
@@ -185,7 +182,7 @@ class NotesService {
       whereArgs: [email.toLowerCase()],
     );
     if (results.isNotEmpty) {
-      throw UserAlreadyExists;
+      throw UserAlreadyExists();
     }
 
     final userId = await db.insert(userTable, {
@@ -233,7 +230,9 @@ class NotesService {
   Future<void> _ensureDbIsOpen() async {
     try {
       await open();
-    } on DatabaseAlreadyOpenException {}
+    } on DatabaseAlreadyOpenException {
+      // empty
+    }
   }
 
   Future<void> open() async {
@@ -245,11 +244,10 @@ class NotesService {
       final dbPath = join(docsPath.path, dbName);
       final db = await openDatabase(dbPath);
       _db = db;
-      //create user table
+      // create the user table
       await db.execute(createUserTable);
-      //create note table
+      // create note table
       await db.execute(createNoteTable);
-
       await _cacheNotes();
     } on MissingPlatformDirectoryException {
       throw UnableToGetDocumentsDirectory();
@@ -261,7 +259,6 @@ class NotesService {
 class DatabaseUser {
   final int id;
   final String email;
-
   const DatabaseUser({
     required this.id,
     required this.email,
@@ -320,22 +317,16 @@ const emailColumn = 'email';
 const userIdColumn = 'user_id';
 const textColumn = 'text';
 const isSyncedWithCloudColumn = 'is_synced_with_cloud';
-
-//create the user table
-const createUserTable = '''CREATE TABLE IF NOT EXISTS "user"(
-      "id" INTEGER NOT NULL,
-      "email" TEXT NOT NULL UNIQUE,
-      PRIMARY KEY("id" AUTOINCREMENT)
-    );
-    ''';
-
-//create the note table
-const createNoteTable = ''' CREATE TABLE IF NOT EXISTS "note"(
-    "id" INTEGER NOT NULL,
-    "user_id" INTEGER NOT NULL,
-    "text" TEXT,
-    "is_synced_with_cloud INTEGER NOT NULL DEFAULT 0,
-    FOREIGN KEY("user_id") REFERENCES "user"("id"),
-    PRIMARY KEY("id" AUTOINCREMENT)
-    );
-  ''';
+const createUserTable = '''CREATE TABLE IF NOT EXISTS "user" (
+        "id"	INTEGER NOT NULL,
+        "email"	TEXT NOT NULL UNIQUE,
+        PRIMARY KEY("id" AUTOINCREMENT)
+      );''';
+const createNoteTable = '''CREATE TABLE IF NOT EXISTS "note" (
+        "id"	INTEGER NOT NULL,
+        "user_id"	INTEGER NOT NULL,
+        "text"	TEXT,
+        "is_synced_with_cloud"	INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY("user_id") REFERENCES "user"("id"),
+        PRIMARY KEY("id" AUTOINCREMENT)
+      );''';
